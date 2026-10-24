@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f4f2ed" />
+    <meta name="description" content="Linksy helps you find your people and make plans around the things you love." />
+    <title>Linksy — Find your people</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/app.js" type="module"></script>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="Linksy home">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span>linksy</span>
+        </a>
+        <nav class="main-nav" aria-label="Main navigation">
+          <a class="nav-link active" href="#discover">Discover</a>
+          <a class="nav-link" href="#how-it-works">How it works</a>
+        </nav>
+        <div class="topbar-end">
+          <span class="demo-badge"><span class="status-dot"></span> Demo mode</span>
+          <button class="avatar-button" type="button" aria-label="Profile menu">A</button>
+        </div>
+      </header>
+
+      <main id="discover">
+        <section class="hero-row">
+          <div>
+            <p class="eyebrow"><span class="eyebrow-spark">✳</span> YOUR PEOPLE ARE OUT THERE</p>
+            <h1>Find your people.<br /><em>Make it happen.</em></h1>
+            <p class="hero-copy">Tell Linksy what you’re into. Your personal agent finds people and plans that fit, so getting out there feels easy.</p>
+          </div>
+          <div class="hero-note" aria-label="The Linksy promise">
+            <span class="note-mark">✦</span>
+            <p>Good plans are<br />better together.</p>
+            <span class="note-caption">WHEREVER YOU ARE</span>
+          </div>
+        </section>
+
+        <section class="workspace-grid" aria-label="Plan a connection">
+          <div class="composer-column">
+            <div class="section-kicker"><span>01</span><span>LET’S FIND YOUR VIBE</span></div>
+            <form id="plan-form" class="composer-card">
+              <label for="prompt" class="composer-title">What would you love to do?</label>
+              <p class="composer-hint">The more you tell me, the better I can match your people and plans.</p>
+              <textarea id="prompt" name="prompt" rows="4" maxlength="2000" required aria-describedby="prompt-hint" placeholder="I’m visiting Chicago this weekend. I love coffee and would like to meet a couple of people to explore with on Saturday."></textarea>
+              <div id="prompt-hint" class="prompt-foot"><span>✨</span> Share a city, date, activity, or the kind of company you’re looking for.</div>
+              <div class="try-row">
+                <span class="try-label">TRY A SCENARIO</span>
+                <button class="scenario-chip" type="button" data-prompt="I live in Oakland and want to play intermediate pickleball Saturday morning. Find one activity partner who is available then.">🏓 Oakland pickleball</button>
+                <button class="scenario-chip" type="button" data-prompt="I live in Oakland and want to join a small beginner-friendly hiking group this Saturday morning. Find a trail walk and compatible people.">🥾 Group hike</button>
+                <button class="scenario-chip" type="button" data-prompt="I’m visiting Chicago this weekend and love coffee. Find a welcoming local or two to explore with Saturday morning.">☕ Chicago weekend</button>
+                <button class="scenario-chip" type="button" data-prompt="I’m in Chicago this weekend and want to find a taxidermy class at 5am Tuesday. Only suggest it if a real demo match exists.">🫧 No-match case</button>
+              </div>
+              <div class="composer-actions">
+                <span class="privacy-inline"><span aria-hidden="true">◉</span> Private until you choose to connect</span>
+                <button id="find-button" class="primary-button" type="submit"><span>Find my people</span><span class="button-arrow" aria-hidden="true">↗</span></button>
+              </div>
+              <p id="form-error" class="form-error" role="alert" hidden></p>
+            </form>
+
+            <div class="trust-strip">
+              <div class="trust-icon">✓</div>
+              <div><strong>You’re always in control</strong><span>Linksy won’t send invitations or confirm a plan without your approval.</span></div>
+            </div>
+          </div>
+
+          <div class="results-column">
+            <div class="section-kicker"><span>02</span><span>YOUR LINKSY PLAN</span><span class="result-live" id="result-live" hidden><i></i> JUST FOR YOU</span></div>
+            <section id="result-panel" class="result-panel" aria-live="polite" aria-busy="false">
+              <div class="empty-state">
+                <div class="orbit-art" aria-hidden="true">
+                  <span class="orbit orbit-one"></span><span class="orbit orbit-two"></span>
+                  <span class="orbit-center">✳</span>
+                  <span class="orbit-person person-one">J</span><span class="orbit-person person-two">M</span><span class="orbit-person person-three">L</span>
+                </div>
+                <p class="empty-eyebrow">YOUR NEXT CHAPTER</p>
+                <h2>Your next great plan<br />starts with a hello.</h2>
+                <p class="empty-copy">Tell me what you’re looking for and I’ll bring the right people and possibilities together.</p>
+                <div class="empty-foot"><span>✦</span> Real connection, one plan at a time</div>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section id="how-it-works" class="how-section">
+          <div class="how-heading">
+            <p class="eyebrow">A LITTLE LESS SCROLLING. A LOT MORE LIVING.</p>
+            <h2>From “someday” to <em>Saturday.</em></h2>
+          </div>
+          <div class="how-steps">
+            <article class="how-step"><span class="step-number">01</span><span class="step-icon">☁</span><h3>Tell me your vibe</h3><p>Share what you enjoy, when you’re free, and the kind of connection you want.</p></article>
+            <article class="how-step"><span class="step-number">02</span><span class="step-icon">✧</span><h3>Meet your matches</h3><p>Get people and activities that fit your interests, location, and schedule.</p></article>
+            <article class="how-step"><span class="step-number">03</span><span class="step-icon">↗</span><h3>Make it a plan</h3><p>Review the idea, approve invitations, and let Linksy help with the details.</p></article>
+          </div>
+        </section>
+      </main>
+      <footer class="footer"><a class="brand footer-brand" href="/" aria-label="Linksy home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>linksy</span></a><span>Find your people, wherever life takes you.</span><span class="footer-demo">Fictional demo profiles · No real invitations are sent</span></footer>
+    </div>
+  </body>
+</html>
