@@ -41,20 +41,71 @@ async function readJson(req) {
   return JSON.parse(raw || "{}");
 }
 
-function fallbackIntent(prompt) {
+function normalizeProfile(profile = {}) {
+  if (!profile || typeof profile !== "object" || Array.isArray(profile)) return {};
+  const text = (value, max = 100) => typeof value === "string" ? value.trim().slice(0, max) : "";
+  return {
+    city: text(profile.city, 80),
+    interests: Array.isArray(profile.interests) ? profile.interests.filter((value) => typeof value === "string").map((value) => text(value, 40)).filter(Boolean).slice(0, 12) : [],
+    socialGoal: text(profile.socialGoal, 40),
+    availability: Array.isArray(profile.availability) ? profile.availability.filter((value) => typeof value === "string").map((value) => text(value, 40)).filter(Boolean).slice(0, 7) : [],
+    skill: ["beginner", "intermediate", "advanced", "any"].includes(profile.skill) ? profile.skill : "any",
+  };
+}
+
+function fallbackIntent(prompt, profile = {}) {
   const text = prompt.toLowerCase();
-  const city = text.includes("chicago") ? "Chicago" : text.includes("oakland") ? "Oakland" : "Oakland";
-  const activity = ["pickleball", "hiking", "coffee", "food", "restaurant", "music", "nightlife", "networking"].find((word) => text.includes(word)) || "";
-  const time = /friday|tonight/.test(text) ? "Friday evening" : /sunday/.test(text) ? "Sunday morning" : "Saturday morning";
-  const skill = ["beginner", "intermediate", "advanced"].find((word) => text.includes(word)) || "any";
+  const interests = Array.isArray(profile.interests) ? profile.interests : [];
+  const availability = Array.isArray(profile.availability) ? profile.availability : [];
+  const knownCity = ["Chicago", "Oakland"].find((cityName) => text.includes(cityName.toLowerCase()));
+  const requestedCity = prompt.match(/\b(?:in|to|visiting|visit)\s+([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+){0,2})\b/);
+  const city = knownCity || requestedCity?.[1] || profile.city || "Oakland";
+  const supportedActivities = ["pickleball", "hiking", "coffee", "food", "restaurant", "music", "nightlife", "networking"];
+  const activity = supportedActivities.find((word) => text.includes(word))
+    || interests.find((interest) => supportedActivities.includes(interest.toLowerCase()))
+    || "";
+  const time = /friday|tonight/.test(text) ? "Friday evening"
+    : /sunday afternoon/.test(text) ? "Sunday afternoon"
+      : /sunday/.test(text) ? "Sunday morning"
+        : /saturday afternoon|saturday after/.test(text) ? "Saturday afternoon"
+          : /saturday/.test(text) ? "Saturday morning"
+          : availability.find((window) => ["Saturday morning", "Saturday afternoon", "Sunday morning", "Friday evening"].includes(window)) || "Saturday morning";
+  const skill = ["beginner", "intermediate", "advanced"].find((word) => text.includes(word)) || profile.skill || "any";
+  const asksOnePerson = /one[- ]on[- ]one|one person|one activity partner|a partner|an activity partner/.test(text);
+  const asksGroup = /small group|group|meet a few people|a few people|with others|join people/.test(text);
   return {
     city,
     activity: activity === "restaurant" ? "food" : activity,
     time,
     skill,
     visiting: /visit|visiting|travel|weekend in/.test(text),
-    group: /group|hiking|networking|crawl|walk/.test(text),
+    group: asksGroup ? true : asksOnePerson ? false : ["join_groups", "meet_friends"].includes(profile.socialGoal),
   };
+}
+
+function timeParts(value = "") {
+  const text = value.toLowerCase();
+  const day = ["friday", "saturday", "sunday", "monday", "tuesday", "wednesday", "thursday"].find((item) => text.includes(item))
+    || (text.includes("weekend") ? "weekend" : "");
+  const clock = text.match(/\b(\d{1,2})(?::\d{2})?\s*(am|pm)\b/);
+  const hour = clock ? Number(clock[1]) % 12 + (clock[2] === "pm" ? 12 : 0) : null;
+  const period = hour !== null ? (hour < 12 ? "morning" : hour < 18 ? "afternoon" : "evening")
+    : /evening|tonight|night/.test(text) ? "evening"
+      : /afternoon|noon/.test(text) ? "afternoon"
+        : /morning/.test(text) ? "morning" : "";
+  return { day, period };
+}
+
+function timeMatches(availableWindow, requestedTime) {
+  const available = timeParts(availableWindow);
+  const requested = timeParts(requestedTime);
+  if (available.day && requested.day && available.day !== requested.day
+    && !(available.day === "weekend" && ["saturday", "sunday", "weekend"].includes(requested.day))
+    && !(requested.day === "weekend" && ["saturday", "sunday", "weekend"].includes(available.day))) return false;
+  if (available.period && requested.period && available.period !== requested.period) return false;
+  if (requested.day && !available.day && !availableWindow.toLowerCase().includes("weekday")) return false;
+  if (requested.period && !available.period) return false;
+  return true;
 }
 
 function parseModelText(body) {
@@ -71,22 +122,22 @@ function parseModelText(body) {
   return JSON.parse(text.slice(start, end + 1));
 }
 
-async function interpret(prompt) {
-  if (!process.env.OPENAI_API_KEY) return { intent: fallbackIntent(prompt), aiMode: "sample" };
+async function interpret(prompt, profile = {}) {
+  const fallback = fallbackIntent(prompt, profile);
+  if (!process.env.OPENAI_API_KEY) return { intent: fallback, aiMode: "sample" };
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: { authorization: `Bearer ${process.env.OPENAI_API_KEY}`, "content-type": "application/json" },
     body: JSON.stringify({
       model,
-      instructions: "Extract a Linksy activity request into JSON only with keys city, activity, time, skill, visiting, and group. Use only what the user said; use empty strings or false when unknown. Do not invent people, events, availability, locations, matches, or invitations. city is a city name, activity is a short activity category, time is a short time window, skill is beginner/intermediate/advanced/any, visiting and group are booleans.",
-      input: prompt,
+      instructions: "Extract a Linksy activity request into JSON only with keys city, activity, time, skill, visiting, and group. The user's profile is context for defaults when the request omits a city, interest, schedule, or group preference; explicit request details always take priority. Do not invent people, events, availability, locations, matches, or invitations. city is a city name, activity is a short activity category, time is a short time window, skill is beginner/intermediate/advanced/any, visiting and group are booleans.",
+      input: JSON.stringify({ request: prompt, profile }),
     }),
     signal: AbortSignal.timeout(12_000),
   });
   if (!response.ok) throw new Error(`OpenAI request failed (${response.status}).`);
   const body = await response.json();
   const extracted = parseModelText(body);
-  const fallback = fallbackIntent(prompt);
   return {
     intent: {
       city: typeof extracted.city === "string" && extracted.city.trim() ? extracted.city.trim() : fallback.city,
@@ -103,10 +154,11 @@ async function interpret(prompt) {
 function buildPlan(intent) {
   const activityText = intent.activity.toLowerCase();
   const targetActivities = activities.filter((item) => item.city.toLowerCase() === intent.city.toLowerCase()
+    && timeMatches(item.time, intent.time)
     && (item.interests.some((interest) => activityText.includes(interest) || interest.includes(activityText)) || activityText === ""));
   const compatible = people.filter((person) => person.city.toLowerCase() === intent.city.toLowerCase()
     && (!intent.visiting || person.welcomesVisitors)
-    && person.availability.some((window) => window.toLowerCase().includes(intent.time.split(" ")[0].toLowerCase()) || intent.time.toLowerCase().includes(window.split(" ")[0].toLowerCase()))
+    && person.availability.some((window) => timeMatches(window, intent.time))
     && (activityText === "" || person.interests.some((interest) => activityText.includes(interest) || interest.includes(activityText)))
     && (intent.skill === "any" || intent.skill === "" || intent.skill === "all levels" || person.skill === intent.skill || person.skill === "all levels"));
 
@@ -124,8 +176,8 @@ function buildPlan(intent) {
   }
 
   const selectedActivity = targetActivities.find((item) => item.group === intent.group) || targetActivities[0];
-  const selectedPeople = intent.group || selectedActivity.group ? compatible.slice(0, 3) : compatible.slice(0, 1);
-  const group = selectedPeople.length > 1 || selectedActivity.group;
+  const selectedPeople = intent.group ? compatible.slice(0, 3) : compatible.slice(0, 1);
+  const group = intent.group;
   return {
     status: "pending_approval",
     city: intent.city,
@@ -147,14 +199,15 @@ async function handleApi(req, res, url) {
   }
   if (req.method === "POST" && url.pathname === "/api/plan") {
     try {
-      const { prompt } = await readJson(req);
+      const { prompt, profile: rawProfile } = await readJson(req);
       if (typeof prompt !== "string" || !prompt.trim()) return sendJson(res, 400, { error: "Tell Linksy what you would like to do." });
+      const profile = normalizeProfile(rawProfile);
       let result;
       try {
-        const { intent, aiMode } = await interpret(prompt.slice(0, 2000));
+        const { intent, aiMode } = await interpret(prompt.slice(0, 2000), profile);
         result = { ...buildPlan(intent), aiMode, intent };
       } catch (error) {
-        result = { ...buildPlan(fallbackIntent(prompt)), aiMode: "sample_fallback", intent: fallbackIntent(prompt), warning: "The GPT connection was unavailable, so Linksy used its demo interpreter." };
+        result = { ...buildPlan(fallbackIntent(prompt, profile)), aiMode: "sample_fallback", intent: fallbackIntent(prompt, profile), warning: "The GPT connection was unavailable, so Linksy used its demo interpreter." };
       }
       const id = randomUUID();
       const plan = { id, ...result, createdAt: new Date().toISOString() };
